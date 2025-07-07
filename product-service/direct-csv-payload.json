@@ -1,0 +1,3 @@
+{
+    "csv_data": "id,name,image,price,qty\nprod-X,New Phone,http://example.com/phone.jpg,999.00,50\nprod-Y,Smartwatch,,249.99,120"
+}

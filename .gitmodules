@@ -1,0 +1,3 @@
+[submodule "product-service"]
+	path = product-service
+	url = https://github.com/DreamWeaver-Achiever/product-service-serverless

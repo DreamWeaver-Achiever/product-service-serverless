@@ -1,0 +1,15 @@
+# Makefile in product-service root
+.PHONY: build clean
+
+build:
+    @echo "Building Lambda functions..."
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o uploadProduct/main ./uploadProduct
+    CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o getAllProducts/main ./getAllProducts
+    @echo "Build complete."
+
+clean:
+    @echo "Cleaning up..."
+    rm -f uploadProduct/main
+    rm -f getAllProducts/main
+    rm -rf .aws-sam
+    @echo "Clean complete."

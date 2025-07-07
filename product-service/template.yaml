@@ -1,0 +1,140 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: Product Service with Lambda, Postgres, and Redis
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 256
+    Runtime: go1.x
+    Architectures:
+      - x86_64
+    Environment:
+      Variables:
+        DB_HOST: !Ref DbHostParameter
+        DB_PORT: !Ref DbPortParameter
+        DB_USER: !Ref DbUserParameter
+        DB_PASSWORD: !Ref DbPasswordParameter
+        DB_NAME: !Ref DbNameParameter
+        REDIS_ADDR: !Ref RedisAddrParameter
+        APP_ENV: !Ref AppEnvParameter
+
+Parameters:
+  DbHostParameter:
+    Type: String
+    Description: PostgreSQL host address
+    Default: localhost
+  DbPortParameter:
+    Type: String
+    Description: PostgreSQL port
+    Default: "5433"
+  DbUserParameter:
+    Type: String
+    Description: PostgreSQL username
+    Default: user
+  DbPasswordParameter:
+    Type: String
+    Description: PostgreSQL password
+    Default: password
+  DbNameParameter:
+    Type: String
+    Description: PostgreSQL database name
+    Default: products_db
+  RedisAddrParameter:
+    Type: String
+    Description: Redis host:port address
+    Default: localhost:6380
+  AppEnvParameter:
+    Type: String
+    Description: Application environment (e.g., development, production, local)
+    Default: development
+  S3BucketUploads: # This parameter is still needed if you use it in policies
+    Type: String
+    Description: Name of the S3 bucket for product CSV uploads
+    Default: your-default-s3-upload-bucket-name # IMPORTANT: Replace with a real bucket name if not managed by SAM
+
+Resources:
+  UploadProductFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: bootstrap
+      Description: Processes CSV files to update product data in PostgreSQL and Redis.
+      MemorySize: 512
+      Timeout: 60
+      Environment:
+        Variables:
+          APP_ENV: !Ref AppEnvParameter
+          DB_HOST: !Ref DbHostParameter
+          DB_PORT: !Ref DbPortParameter
+          DB_USER: !Ref DbUserParameter
+          DB_PASSWORD: !Ref DbPasswordParameter
+          DB_NAME: !Ref DbNameParameter
+          REDIS_ADDR: !Ref RedisAddrParameter
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - s3:GetObject
+              Resource: !Sub "arn:${AWS::Partition}:s3:::${S3BucketUploads}/*"
+            - Effect: Allow
+              Action:
+                - rds-db:connect
+              Resource: !Sub "arn:${AWS::Partition}:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${DbUserParameter}/!*"
+            - Effect: Allow
+              Action:
+                - elasticache:Connect
+              Resource: !Sub "arn:${AWS::Partition}:elasticache:${AWS::Region}:${AWS::AccountId}:cluster:product-redis-cluster"
+    Metadata:
+      BuildMethod: go1.x
+      BuildProperties:
+        Package: ./uploadProduct # <--- Still important for Go module context
+
+  GetAllProductsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: bootstrap
+      Description: Retrieves all product data from Redis cache or PostgreSQL.
+      MemorySize: 256
+      Timeout: 15
+      Environment:
+        Variables:
+          APP_ENV: !Ref AppEnvParameter
+          DB_HOST: !Ref DbHostParameter
+          DB_PORT: !Ref DbPortParameter
+          DB_USER: !Ref DbUserParameter
+          DB_PASSWORD: !Ref DbNameParameter
+          DB_NAME: !Ref DbNameParameter
+          REDIS_ADDR: !Ref RedisAddrParameter
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - rds-db:connect
+              Resource: !Sub "arn:${AWS::Partition}:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${DbUserParameter}/!*"
+            - Effect: Allow
+              Action:
+                - elasticache:Connect
+              Resource: !Sub "arn:${AWS::Partition}:elasticache:${AWS::Region}:${AWS::AccountId}:cluster:product-redis-cluster"
+      Events:
+        ApiEvent:
+          Type: Api
+          Properties:
+            Path: /products
+            Method: GET
+    Metadata:
+      BuildMethod: go1.x
+      BuildProperties:
+        Package: ./getAllProducts # <--- Still important for Go module context
+
+Outputs:
+  GetAllProductsApi:
+    Description: "API Gateway endpoint URL for GetAllProductsFunction"
+    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/products/"
+  UploadProductFunctionName:
+    Description: "Upload Product Lambda Function Name"
+    Value: !Ref UploadProductFunction
+  GetAllProductsFunctionName:
+    Description: "Get All Products Lambda Function Name"
+    Value: !Ref GetAllProductsFunction

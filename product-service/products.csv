@@ -1,0 +1,6 @@
+id,name,image,price,qty
+a1b2c3d4-e5f6-7890-1234-567890abcdef,Laptop Pro,https://example.com/laptop.jpg,1200.50,100
+a1b2c3d4-e5f6-7890-1234-567890abcdeg,Mechanical Keyboard,https://example.com/keyboard.jpg,150.00,50
+,Wireless Mouse,https://example.com/mouse.jpg,25.99,200
+,USB Hub,,19.99,0
+,Gaming Monitor,https://example.com/monitor.jpg,350.75,75
